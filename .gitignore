@@ -3,16 +3,27 @@ node_modules/
 
 # Variables de entorno (credenciales sensibles)
 .env
-.env.local
+.env.*
+!.env.example
+
+# Credenciales de Google Service Account
+*service-account*.json
+*credentials*.json
+google-credentials*.json
 
 # Builds
 dist/
+build/
+out/
 dist-electron/
+release/
 
 # Base de datos local
 database/*.db
 database/*.db-shm
 database/*.db-wal
+database/*.sqlite
+database/*.sqlite3
 
 # Exportaciones generadas
 exports/
