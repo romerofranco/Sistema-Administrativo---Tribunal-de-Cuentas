@@ -83,7 +83,7 @@ function construirHTMLNota({ mes, anio, numeroNota, expedientes, responsables, c
       border-collapse: collapse;
       margin-bottom: 28px;
     }
-    .celda-logo { width: 130px; vertical-align: top; }
+    .celda-logo { width: 190px; vertical-align: top; }
     .celda-datos { text-align: right; vertical-align: top; font-size: 11pt; line-height: 1.4; }
     .celda-datos p { margin: 2px 0; }
     .ref-bold { font-weight: bold; }
@@ -103,7 +103,7 @@ function construirHTMLNota({ mes, anio, numeroNota, expedientes, responsables, c
   <table class="encabezado">
     <tr>
       <td class="celda-logo">
-        ${logoBase64 ? `<img src="${logoBase64}" style="width:120px;height:auto;" alt="Tribunal de Cuentas" />` : ''}
+        ${logoBase64 ? `<img src="${logoBase64}" style="width:180px;height:auto;" alt="Tribunal de Cuentas" />` : ''}
       </td>
       <td class="celda-datos">
         <p>${fechaInstitucional}</p>

@@ -11,13 +11,34 @@ const MESES_LISTA = [
   { v: 10, l: 'Octubre' }, { v: 11, l: 'Noviembre' }, { v: 12, l: 'Diciembre' },
 ]
 
+const TIPOS_DISCREPANCIA = {
+  duplicado:     { label: 'Duplicado',         clase: 'bg-amber-100 text-amber-700 border-amber-200' },
+  faltaInforme:  { label: 'Falta en informe',  clase: 'bg-orange-100 text-orange-700 border-orange-200' },
+  faltaLibro:    { label: 'Falta en libro',    clase: 'bg-blue-100 text-blue-700 border-blue-200' },
+}
+
 function PanelValidacion({ validacion, soloEnLibro }) {
-  const [expandirDup, setExpandirDup]           = useState(false)
-  const [expandirSinLibro, setExpandirSinLibro] = useState(false)
+  const [expandido, setExpandido] = useState(false)
 
   if (!validacion) return null
   const { duplicadosEliminados, duplicados, sinEnLibro, totalLibro } = validacion
-  const hayProblemas = duplicadosEliminados > 0 || soloEnLibro.length > 0 || sinEnLibro.length > 0
+
+  // Una sola lista normalizada: cada discrepancia con su tipo, en vez de
+  // tres cajas de colores separadas con redacciones casi idénticas/espejadas
+  // (confuso para distinguir "falta en informe" de "falta en libro").
+  const items = [
+    ...(duplicados || []).map(d => ({
+      tipo: 'duplicado', nroExpediente: d.nroExpediente, detalle: d.denominacion,
+    })),
+    ...(soloEnLibro || []).map(l => ({
+      tipo: 'faltaInforme', nroExpediente: l.nroExpediente, detalle: l.asunto, estado: l.estado,
+    })),
+    ...(sinEnLibro || []).map(e => ({
+      tipo: 'faltaLibro', nroExpediente: e.nroExpediente, detalle: e.denominacion,
+    })),
+  ]
+
+  const hayProblemas = items.length > 0
   if (totalLibro === 0 && !hayProblemas) return null
 
   return (
@@ -45,84 +66,57 @@ function PanelValidacion({ validacion, soloEnLibro }) {
         </div>
       )}
 
-      {/* Duplicados eliminados */}
-      {duplicadosEliminados > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-amber-800 text-sm font-medium">
-              <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+      {/* Discrepancias: resumen con chips + un único listado expandible */}
+      {hayProblemas && (
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <button
+            onClick={() => setExpandido(v => !v)}
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+          >
+            <span className="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <svg className="w-4 h-4 flex-shrink-0 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
-              {duplicadosEliminados} expediente{duplicadosEliminados !== 1 ? 's' : ''} duplicado{duplicadosEliminados !== 1 ? 's' : ''} eliminado{duplicadosEliminados !== 1 ? 's' : ''} automáticamente
-            </div>
-            {duplicados?.length > 0 && (
-              <button onClick={() => setExpandirDup(v => !v)} className="text-amber-600 hover:text-amber-800 text-xs underline ml-4">
-                {expandirDup ? 'Ocultar' : 'Ver detalle'}
-              </button>
-            )}
-          </div>
-          {expandirDup && (
-            <ul className="mt-2 space-y-1">
-              {duplicados.map((d, i) => (
-                <li key={i} className="text-xs text-amber-700 font-mono">
-                  {d.nroExpediente || '(sin número)'} — <span className="font-sans">{d.denominacion || '—'}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-
-      {/* En libro pero no en informe — solo informativo */}
-      {soloEnLibro.length > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 space-y-2">
-          <p className="text-sm font-medium text-orange-800 flex items-center gap-2">
-            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            {soloEnLibro.length} registro{soloEnLibro.length !== 1 ? 's' : ''} del libro de entrada no tienen expediente visado correspondiente en el informe
-          </p>
-          <div className="space-y-1.5">
-            {soloEnLibro.map(l => (
-              <div key={l.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-orange-100">
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-mono text-gray-700">{l.nroExpediente || '—'}</p>
-                  <p className="text-xs text-gray-500 truncate">{l.asunto || '—'}</p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 ml-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    l.estado === 'VISADO'  ? 'bg-green-100 text-green-700'  :
-                    l.estado === 'SALIDA'  ? 'bg-blue-100 text-blue-700'   :
-                    'bg-gray-100 text-gray-600'
-                  }`}>{l.estado}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* En informe pero sin registro en libro */}
-      {sinEnLibro?.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-blue-800 flex items-center gap-2">
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {sinEnLibro.length} expediente{sinEnLibro.length !== 1 ? 's' : ''} del informe sin registro en el libro de entrada
+              {items.length} discrepancia{items.length !== 1 ? 's' : ''} encontrada{items.length !== 1 ? 's' : ''}
             </span>
-            <button onClick={() => setExpandirSinLibro(v => !v)} className="text-blue-600 hover:text-blue-800 text-xs underline ml-4">
-              {expandirSinLibro ? 'Ocultar' : 'Ver listado'}
-            </button>
-          </div>
-          {expandirSinLibro && (
-            <ul className="mt-2 space-y-1">
-              {sinEnLibro.map((e, i) => (
-                <li key={i} className="text-xs text-blue-700 font-mono">
-                  {e.nroExpediente || '—'} — <span className="font-sans">{e.denominacion || '—'}</span>
+            <span className="flex items-center gap-2 flex-wrap justify-end">
+              {duplicadosEliminados > 0 && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${TIPOS_DISCREPANCIA.duplicado.clase}`}>
+                  {duplicadosEliminados} {TIPOS_DISCREPANCIA.duplicado.label.toLowerCase()}{duplicadosEliminados !== 1 ? 's' : ''}
+                </span>
+              )}
+              {soloEnLibro.length > 0 && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${TIPOS_DISCREPANCIA.faltaInforme.clase}`}>
+                  {soloEnLibro.length} {TIPOS_DISCREPANCIA.faltaInforme.label.toLowerCase()}
+                </span>
+              )}
+              {sinEnLibro?.length > 0 && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${TIPOS_DISCREPANCIA.faltaLibro.clase}`}>
+                  {sinEnLibro.length} {TIPOS_DISCREPANCIA.faltaLibro.label.toLowerCase()}
+                </span>
+              )}
+              <svg className={`w-4 h-4 text-gray-400 transition-transform ${expandido ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </span>
+          </button>
+
+          {expandido && (
+            <ul className="divide-y divide-gray-100 bg-white">
+              {items.map((it, i) => (
+                <li key={i} className="flex items-center gap-3 px-4 py-2 text-xs">
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full font-medium border ${TIPOS_DISCREPANCIA[it.tipo].clase}`}>
+                    {TIPOS_DISCREPANCIA[it.tipo].label}
+                  </span>
+                  <span className="font-mono text-gray-700 shrink-0">{it.nroExpediente || '—'}</span>
+                  <span className="flex-1 truncate text-gray-500">{it.detalle || '—'}</span>
+                  {it.estado && (
+                    <span className={`shrink-0 px-2 py-0.5 rounded-full font-medium ${
+                      it.estado === 'VISADO' ? 'bg-green-100 text-green-700' :
+                      it.estado === 'SALIDA' ? 'bg-blue-100 text-blue-700' :
+                      'bg-gray-100 text-gray-600'
+                    }`}>{it.estado}</span>
+                  )}
                 </li>
               ))}
             </ul>
