@@ -43,6 +43,14 @@ db.exec(schemaSQL)
 
   // Migrar rol 'administrador' → 'superadmin'
   db.exec("UPDATE usuarios SET rol = 'superadmin' WHERE rol = 'administrador'")
+
+  // ── expedientes ──────────────────────────────────────────────────────────────
+  const colsExp = db.prepare('PRAGMA table_info(expedientes)').all().map(c => c.name)
+  if (!colsExp.includes('eliminado_en'))
+    db.exec('ALTER TABLE expedientes ADD COLUMN eliminado_en TEXT')
+  if (!colsExp.includes('eliminado_por'))
+    db.exec('ALTER TABLE expedientes ADD COLUMN eliminado_por TEXT')
+  db.exec('CREATE INDEX IF NOT EXISTS idx_exp_eliminado_en ON expedientes (eliminado_en)')
 })()
 
 // ─── MÉTODOS PARA EXPEDIENTES ─────────────────────────────────────────────────
@@ -51,7 +59,7 @@ db.obtenerExpedientes = function({
   pagina = 1, porPagina = 50,
   busqueda = '', mes, anio, estado, tipoOp,
 } = {}) {
-  let where = '1=1'
+  let where = 'eliminado_en IS NULL'
   const params = []
 
   if (busqueda) {
@@ -88,6 +96,11 @@ db.obtenerExpedientes = function({
   return { expedientes: expedientes.map(filaAExpediente), total }
 }
 
+// NOTA (caso de borde preexistente, no introducido por la papelera): si el expediente
+// local tiene id_sheets = NULL (nunca se sincronizó a Sheets), el ON CONFLICT(id_sheets)
+// de abajo NO dispara —SQLite no trata los NULL como iguales en restricciones UNIQUE—
+// y el upsert inserta una fila duplicada en vez de actualizar la existente. Pendiente
+// de revisar cuando se audite el flujo de sync en general.
 db.upsertExpediente = function(datos) {
   db.prepare(`
     INSERT INTO expedientes (
@@ -101,6 +114,8 @@ db.upsertExpediente = function(datos) {
       @impNeto, @impRetenido, @impBruto, @fechaVisado, @entrada, @fsEntrada,
       @observacion, @salida, @fsSalida, @firma, @estado, 0
     )
+    -- eliminado_en / eliminado_por quedan fuera a propósito: el pull desde Sheets
+    -- no debe revivir expedientes que están en la papelera local.
     ON CONFLICT(id_sheets) DO UPDATE SET
       cta_financ = excluded.cta_financ,
       denominacion = excluded.denominacion,
@@ -193,7 +208,7 @@ db.resumenMes = function(mes, anio) {
   const exps = db.prepare(`
     SELECT estado, imp_neto, imp_bruto, imp_retenido
     FROM expedientes
-    WHERE (
+    WHERE eliminado_en IS NULL AND (
       (fecha_visado GLOB '????-??-??*' AND strftime('%m', fecha_visado) = ? AND strftime('%Y', fecha_visado) = ?)
       OR (fecha_visado GLOB '??/??/????*' AND substr(fecha_visado, 4, 2) = ? AND substr(fecha_visado, 7, 4) = ?)
       OR (fecha_visado GLOB '?/??/????*' AND substr(fecha_visado, 3, 2) = ? AND substr(fecha_visado, 6, 4) = ?)
@@ -211,6 +226,17 @@ db.resumenMes = function(mes, anio) {
       EN_PROCESO: exps.filter(e => e.estado === 'EN_PROCESO').length,
     },
   }
+}
+
+db.obtenerPapelera = function() {
+  const expedientes = db.prepare(
+    `SELECT * FROM expedientes WHERE eliminado_en IS NOT NULL ORDER BY eliminado_en DESC`
+  ).all()
+  return expedientes.map(fila => ({
+    ...filaAExpediente(fila),
+    eliminadoEn: fila.eliminado_en,
+    eliminadoPor: fila.eliminado_por,
+  }))
 }
 
 // Mapear fila SQLite a objeto estándar

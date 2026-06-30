@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS expedientes (
   firma           TEXT,
   estado          TEXT DEFAULT 'VISADO', -- VISADO | PENDIENTE | OBSERVADO | EN_PROCESO
   pendiente_sync  INTEGER DEFAULT 0,     -- 1 = hay cambios sin sincronizar a Sheets
+  eliminado_en    TEXT,                  -- NULL = activo, fecha ISO = en papelera (soft-delete local)
+  eliminado_por   TEXT,                  -- nombre de usuario que lo envió a la papelera
   creado_en       TEXT DEFAULT (datetime('now')),
   modificado_en   TEXT DEFAULT (datetime('now'))
 );
@@ -190,6 +192,9 @@ CREATE INDEX IF NOT EXISTS idx_exp_nro_expediente  ON expedientes (nro_expedient
 CREATE INDEX IF NOT EXISTS idx_exp_estado          ON expedientes (estado);
 CREATE INDEX IF NOT EXISTS idx_exp_pendiente_sync  ON expedientes (pendiente_sync);
 CREATE INDEX IF NOT EXISTS idx_exp_tipo_op         ON expedientes (tipo_op);
+-- idx_exp_eliminado_en se crea en la migración de src/services/sqlite.js,
+-- no acá: en bases existentes la columna todavía no existe en este punto
+-- (CREATE TABLE IF NOT EXISTS es un no-op sobre tablas ya creadas).
 CREATE INDEX IF NOT EXISTS idx_cp_mes_anio         ON control_preventivo (mes, anio);
 CREATE INDEX IF NOT EXISTS idx_cp_organismo        ON control_preventivo (organismo);
 

@@ -1,5 +1,5 @@
 const express = require('express')
-const { verificarToken } = require('../middleware/auth')
+const { verificarToken, soloSuperAdmin } = require('../middleware/auth')
 const sheetsService = require('../../src/services/googleSheets')
 const db = require('../../src/services/sqlite')
 const auditar = require('../middleware/auditoria')
@@ -168,7 +168,8 @@ router.patch('/:id/estado', (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// ─── DELETE /api/expedientes/:id ─────────────────────────────────────────────
+// ─── DELETE /api/expedientes/:id — envía a la papelera (soft-delete local) ───
+// No toca Google Sheets: la fila queda intacta allá hasta la purga definitiva.
 router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params
@@ -177,25 +178,97 @@ router.delete('/:id', async (req, res, next) => {
       'SELECT * FROM expedientes WHERE id_sheets = ? OR id = ?'
     ).get(id, id)
 
-    if (registro?.id_sheets) {
-      sheetsService.eliminarExpediente(registro.id_sheets)
-        .catch(err => console.warn('[DELETE expediente] Sheets no disponible:', err.message))
-    }
+    if (!registro) return res.status(404).json({ error: 'Expediente no encontrado' })
 
-    db.prepare('DELETE FROM expedientes WHERE id_sheets = ? OR id = ?').run(id, id)
+    const ahora = new Date().toISOString()
+    db.prepare('UPDATE expedientes SET eliminado_en = ?, eliminado_por = ? WHERE id = ?')
+      .run(ahora, req.usuario.nombreUsuario || null, registro.id)
 
     auditar({
       usuarioId:       req.usuario.id,
-      usuarioNombre:   req.usuario.nombre_completo || req.usuario.nombre_usuario,
+      usuarioNombre:   req.usuario.nombre_completo || req.usuario.nombreUsuario,
       accion:          'ELIMINAR',
       modulo:          'expedientes',
-      registroId:      registro?.id || id,
-      descripcion:     `Eliminó expediente — ${registro?.denominacion || registro?.nro_expediente || id}`,
-      datosAnteriores: registro || null,
+      registroId:      registro.id,
+      descripcion:     `Envió a la papelera el expediente — ${registro.denominacion || registro.nro_expediente || id}`,
+      datosAnteriores: registro,
       ip:              req.ip,
     })
 
-    res.json({ mensaje: 'Expediente eliminado correctamente' })
+    res.json({ mensaje: 'Expediente enviado a la papelera' })
+  } catch (err) { next(err) }
+})
+
+// ─── POST /api/expedientes/:id/restaurar — saca de la papelera ──────────────
+router.post('/:id/restaurar', (req, res, next) => {
+  try {
+    const { id } = req.params
+
+    const registro = db.prepare(
+      'SELECT * FROM expedientes WHERE id_sheets = ? OR id = ?'
+    ).get(id, id)
+
+    if (!registro) return res.status(404).json({ error: 'Expediente no encontrado' })
+    if (!registro.eliminado_en) return res.status(400).json({ error: 'El expediente no está en la papelera' })
+
+    db.prepare('UPDATE expedientes SET eliminado_en = NULL, eliminado_por = NULL WHERE id = ?')
+      .run(registro.id)
+
+    auditar({
+      usuarioId:       req.usuario.id,
+      usuarioNombre:   req.usuario.nombre_completo || req.usuario.nombreUsuario,
+      accion:          'RESTAURAR',
+      modulo:          'expedientes',
+      registroId:      registro.id,
+      descripcion:     `Restauró desde la papelera el expediente — ${registro.denominacion || registro.nro_expediente || id}`,
+      datosAnteriores: { eliminadoEn: registro.eliminado_en, eliminadoPor: registro.eliminado_por },
+      ip:              req.ip,
+    })
+
+    res.json({ mensaje: 'Expediente restaurado correctamente' })
+  } catch (err) { next(err) }
+})
+
+// ─── DELETE /api/expedientes/:id/purgar — borrado DEFINITIVO, solo superadmin ─
+router.delete('/:id/purgar', soloSuperAdmin, async (req, res, next) => {
+  try {
+    const { id } = req.params
+
+    const registro = db.prepare(
+      'SELECT * FROM expedientes WHERE id_sheets = ? OR id = ?'
+    ).get(id, id)
+
+    if (!registro) return res.status(404).json({ error: 'Expediente no encontrado' })
+    if (!registro.eliminado_en) {
+      return res.status(400).json({ error: 'El expediente debe estar en la papelera antes de purgarlo' })
+    }
+
+    if (registro.id_sheets) {
+      sheetsService.eliminarExpediente(registro.id_sheets)
+        .catch(err => console.warn('[PURGAR expediente] Sheets no disponible:', err.message))
+    }
+
+    db.prepare('DELETE FROM expedientes WHERE id = ?').run(registro.id)
+
+    auditar({
+      usuarioId:       req.usuario.id,
+      usuarioNombre:   req.usuario.nombre_completo || req.usuario.nombreUsuario,
+      accion:          'PURGAR',
+      modulo:          'expedientes',
+      registroId:      registro.id,
+      descripcion:     `Purgó definitivamente el expediente — ${registro.denominacion || registro.nro_expediente || id}`,
+      datosAnteriores: registro,
+      ip:              req.ip,
+    })
+
+    res.json({ mensaje: 'Expediente eliminado definitivamente' })
+  } catch (err) { next(err) }
+})
+
+// ─── GET /api/expedientes/papelera — lista expedientes en papelera ──────────
+router.get('/papelera', (req, res, next) => {
+  try {
+    res.json({ expedientes: db.obtenerPapelera() })
   } catch (err) { next(err) }
 })
 

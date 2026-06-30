@@ -117,7 +117,7 @@ router.post('/importar-sheets', async (req, res, next) => {
 router.get('/estado', (req, res, next) => {
   try {
     const { count } = db.prepare('SELECT COUNT(*) as count FROM expedientes WHERE pendiente_sync = 1').get()
-    const { total } = db.prepare('SELECT COUNT(*) as total FROM expedientes').get()
+    const { total } = db.prepare('SELECT COUNT(*) as total FROM expedientes WHERE eliminado_en IS NULL').get()
     const sheetsConfigurado = !!(
       process.env.GOOGLE_SHEET_ID &&
       process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL &&

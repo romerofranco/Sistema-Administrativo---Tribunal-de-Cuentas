@@ -29,7 +29,7 @@ function RutaProtegida({ children, soloAdmin = false }) {
   }
 
   if (!usuario) return <Navigate to="/login" replace />
-  if (soloAdmin && usuario.rol !== 'administrador') return <Navigate to="/" replace />
+  if (soloAdmin && usuario.rol !== 'superadmin') return <Navigate to="/" replace />
 
   return children
 }
