@@ -1,0 +1,31 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno (credenciales sensibles)
+.env
+.env.local
+
+# Builds
+dist/
+dist-electron/
+
+# Base de datos local
+database/*.db
+database/*.db-shm
+database/*.db-wal
+
+# Exportaciones generadas
+exports/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

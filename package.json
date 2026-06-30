@@ -1,0 +1,69 @@
+{
+  "name": "sistema-expedientes-tribunal",
+  "version": "1.0.0",
+  "description": "Sistema de Gestión de Expedientes — Delegación Fiscal, Tribunal de Cuentas de La Rioja",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run vite\" \"npm run electron:dev\"",
+    "vite": "vite",
+    "server": "node --openssl-legacy-provider server/index.js",
+    "electron:dev": "wait-on http://localhost:5173 && electron .",
+    "build": "vite build && electron-builder",
+    "build:vite": "vite build",
+    "preview": "vite preview",
+    "start": "concurrently \"npm run server\" \"npm run preview\""
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^9.4.3",
+    "cors": "^2.8.5",
+    "date-fns": "^3.3.1",
+    "dotenv": "^16.4.1",
+    "exceljs": "^4.4.0",
+    "express": "^4.18.2",
+    "express-rate-limit": "^8.5.2",
+    "googleapis": "^128.0.0",
+    "helmet": "^8.2.0",
+    "jsonwebtoken": "^9.0.2",
+    "puppeteer": "^21.11.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "concurrently": "^8.2.2",
+    "electron": "^28.2.3",
+    "electron-builder": "^24.9.1",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "vite": "^5.1.0",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "ar.gob.larioja.tribunalcuentas.expedientes",
+    "productName": "Sistema Expedientes — Tribunal de Cuentas",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "server/**/*",
+      "database/**/*",
+      "assets/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/logo-tribunal.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
