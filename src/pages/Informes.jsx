@@ -133,8 +133,12 @@ export default function Informes() {
   const navigate = useNavigate()
   const expManual = location.state?.expedientesManual || null
 
-  const [mes, setMes]           = useState(ahora.getMonth() + 1)
-  const [anio, setAnio]         = useState(ahora.getFullYear())
+  // Por defecto: el mes anterior al actual (si es enero, diciembre del año pasado)
+  const defMes  = ahora.getMonth() === 0 ? 12 : ahora.getMonth()
+  const defAnio = ahora.getMonth() === 0 ? ahora.getFullYear() - 1 : ahora.getFullYear()
+
+  const [mes, setMes]           = useState(defMes)
+  const [anio, setAnio]         = useState(defAnio)
   const [numeroNota, setNumeroNota] = useState('')
   const [modoManual, setModoManual] = useState(!!expManual)
   const [preview, setPreview]   = useState(expManual ? {
@@ -286,8 +290,8 @@ export default function Informes() {
 
   const limpiarTodo = () => {
     const hoy = new Date()
-    setMes(hoy.getMonth() + 1)
-    setAnio(hoy.getFullYear())
+    setMes(hoy.getMonth() === 0 ? 12 : hoy.getMonth())
+    setAnio(hoy.getMonth() === 0 ? hoy.getFullYear() - 1 : hoy.getFullYear())
     setNumeroNota('')
     setPreview(null)
     setArchivos([])
