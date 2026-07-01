@@ -4,7 +4,8 @@ const fs = require('fs')
 const { verificarToken } = require('../middleware/auth')
 const sheetsService = require('../../src/services/googleSheets')
 const db = require('../../src/services/sqlite')
-const generarNota = require('../../src/services/exportadores/generarNota')
+const generarNota     = require('../../src/services/exportadores/generarNota')
+const generarNotaDocx = require('../../src/services/exportadores/generarNotaDocx')
 const generarPlanilla = require('../../src/services/exportadores/generarPlanilla')
 const router = express.Router()
 
@@ -165,6 +166,29 @@ router.post('/nota', async (req, res, next) => {
     })
 
     res.json({ archivo: path.basename(rutaPDF), url: `/exports/${path.basename(rutaPDF)}` })
+  } catch (err) { next(err) }
+})
+
+// POST /api/informes/nota-docx — Generar .docx editable de la Nota
+router.post('/nota-docx', async (req, res, next) => {
+  try {
+    const { mes, anio, numeroNota, expedientes } = req.body
+
+    const responsables = db.prepare(`
+      SELECT r.*, p.nombre AS nombre_programa, p.numero AS numero_programa
+      FROM responsables r LEFT JOIN programas p ON r.programa_id = p.id
+      WHERE r.activo = 1 ORDER BY r.orden_jerarquico ASC
+    `).all()
+
+    const config = db.prepare('SELECT * FROM configuracion WHERE id = 1').get() || {}
+
+    const rutaDocx = await generarNotaDocx({
+      mes: parseInt(mes), anio: parseInt(anio),
+      numeroNota, expedientes, responsables, config,
+      dirSalida: DIR_EXPORTS,
+    })
+
+    res.json({ archivo: path.basename(rutaDocx), url: `/exports/${path.basename(rutaDocx)}` })
   } catch (err) { next(err) }
 })
 
